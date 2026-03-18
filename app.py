@@ -12,7 +12,7 @@ st.set_page_config(
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=GEMINI_API_KEY)
 
-# ── GOOGLE SEARCH GROUNDING ──────────────────────
+# ── GOOGLE SEARCH GROUNDING (grátis até 500 req/dia) ──────────
 search_tool = genai.protos.Tool(
     google_search_retrieval=genai.protos.GoogleSearchRetrieval(
         dynamic_retrieval_config=genai.protos.DynamicRetrievalConfig(
@@ -23,7 +23,7 @@ search_tool = genai.protos.Tool(
 )
 
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-pro",
+    model_name="gemini-2.5-flash",
     generation_config={"max_output_tokens": 8192, "temperature": 0.7},
     tools=[search_tool]
 )
