@@ -1,6 +1,7 @@
 import streamlit as st
-import google.generativeai as genai
 import pathlib
+from google import genai
+from google.genai import types
 
 # ── CONFIG ──────────────────────────────────────
 st.set_page_config(
@@ -10,23 +11,8 @@ st.set_page_config(
 )
 
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-genai.configure(api_key=GEMINI_API_KEY)
-
-# ── GOOGLE SEARCH GROUNDING (grátis até 500 req/dia) ──────────
-search_tool = genai.protos.Tool(
-    google_search_retrieval=genai.protos.GoogleSearchRetrieval(
-        dynamic_retrieval_config=genai.protos.DynamicRetrievalConfig(
-            mode=genai.protos.DynamicRetrievalConfig.Mode.MODE_DYNAMIC,
-            dynamic_threshold=0.3
-        )
-    )
-)
-
-model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    generation_config={"max_output_tokens": 8192, "temperature": 0.7},
-    tools=[search_tool]
-)
+client = genai.Client(api_key=GEMINI_API_KEY)
+MODEL = "gemini-2.5-flash"
 
 # ── CARREGA OS 3 ARQUIVOS ──────────────────────
 @st.cache_resource
@@ -404,20 +390,36 @@ if submitted:
         progress = st.progress(0, text="🔍 Iniciando análise com PDFs + Google Search...")
 
         with st.spinner("⏳ Gerando Seções 1-10 — Validação, Rankings, Nichos, Segredos..."):
-            resp_a = model.generate_content([
-                {"mime_type": "application/pdf", "data": pdf_blueprint},
-                {"mime_type": "application/pdf", "data": pdf_nichos},
-                prompt_generate_a(nicho, keywords, language)
-            ])
+            resp_a = client.models.generate_content(
+                model=MODEL,
+                contents=[
+                    types.Part.from_bytes(data=pdf_blueprint, mime_type="application/pdf"),
+                    types.Part.from_bytes(data=pdf_nichos,    mime_type="application/pdf"),
+                    prompt_generate_a(nicho, keywords, language)
+                ],
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    max_output_tokens=8192,
+                    temperature=0.7
+                )
+            )
             part1 = resp_a.text
             progress.progress(45, text="✅ Seções 1-10 prontas — Gerando Seções 11-20...")
 
         with st.spinner("⏳ Gerando Seções 11-20 — Projeção, Workflow, Roteiro, Prompts..."):
-            resp_b = model.generate_content([
-                {"mime_type": "application/pdf", "data": pdf_blueprint},
-                {"mime_type": "application/pdf", "data": pdf_nichos},
-                prompt_generate_b(nicho, keywords, language)
-            ])
+            resp_b = client.models.generate_content(
+                model=MODEL,
+                contents=[
+                    types.Part.from_bytes(data=pdf_blueprint, mime_type="application/pdf"),
+                    types.Part.from_bytes(data=pdf_nichos,    mime_type="application/pdf"),
+                    prompt_generate_b(nicho, keywords, language)
+                ],
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    max_output_tokens=8192,
+                    temperature=0.7
+                )
+            )
             part2 = resp_b.text
             progress.progress(85, text="✅ Seções 11-20 prontas — Montando HTML...")
 
